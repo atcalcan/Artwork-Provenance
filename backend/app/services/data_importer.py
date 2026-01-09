@@ -119,27 +119,26 @@ class DataImporter:
         
         return None
     
-    def _find_or_create_location(self, location_names: list, location_tgn: str = None) -> str:
+    def _find_or_create_location(self, location_name: str, location_tgn: str = None) -> str:
         """Find existing location or create new one"""
-        if not location_names:
-            location_names = ["Unknown Location"]
         
-        location_key = location_names[0]
+        if not location_name:
+            location_name = "Unknown Location"
         
-        if location_key in self.created_locations:
-            logger.debug(f"Reusing existing location: {location_key}")
-            return self.created_locations[location_key]
+        if location_name in self.created_locations:
+            logger.debug(f"Reusing existing location: {location_name}")
+            return self.created_locations[location_name]
         
         location_id = str(uuid4())
         location_uri = f"{base_uri}location/{location_id}"
         location_data = {
-            'location': location_names,
+            'location': location_name,
             'locationTGN': location_tgn
         }
         
         if self.rdf_service.add_location(location_uri, location_data):
-            self.created_locations[location_key] = location_uri
-            logger.info(f"Created new location: {location_key}")
+            self.created_locations[location_name] = location_uri
+            logger.info(f"Created new location: {location_name}")
             return location_uri
         
         return None
@@ -176,7 +175,7 @@ class DataImporter:
             return None
         
         def get_text(element, tag, ns_key='dc'):
-            return ", ".join([e.text for e in element.findall(f'{ns_key}:{tag}', namespaces) if e.text])
+            return " ".join([e.text for e in element.findall(f'{ns_key}:{tag}', namespaces) if e.text])
         
 
         inventoryNumber = get_text(cho_element, 'identifier', 'dc')
