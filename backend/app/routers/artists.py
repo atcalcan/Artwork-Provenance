@@ -2,8 +2,11 @@
 Artists API router
 Endpoints for managing artists
 """
+
 import structlog
+from typing import Dict, Any, Optional
 from fastapi import APIRouter, Query, Request
+from app.services import wikidata_parser_for_artist
 from app.services.external_data import DBpediaService, WikidataService, GettyService
 
 logger = structlog.get_logger()
@@ -26,7 +29,7 @@ async def list_artists(
     
     try:
         filters = {}
-        if location_id:
+        if location_id and location_id != '':
             filters['location_uri'] = f"http://arp-greatteam.org/heritage-provenance/location/{location_id}"
         
         artists = rdf_service.get_all_artists(filters=filters, limit=limit)
@@ -57,7 +60,10 @@ async def get_artist(artist_id: str, request: Request):
                 "error": "Artist not found",
                 "artist_id": artist_id
             }
-        
+        else:
+            artist = await wikidata_enrichment(artist)
+            # artist = await dbpedia_enrichment(artist)
+            
         return artist
         
     except Exception as e:
@@ -68,25 +74,28 @@ async def get_artist(artist_id: str, request: Request):
         }
 
 
-@router.get("/{artist_id}/enrich")
-async def enrich_artist(artist_id: str, source: str = Query(..., regex="^(dbpedia|wikidata|getty)$")):
-    """Enrich artist data from external sources"""
+async def wikidata_enrichment(artist: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Helper function to enrich artist data with Wikidata"""
     
-    artist_uri = f"http://arp-greatteam.org/heritage-provenance/artist/{artist_id}"
+    try:
+        wikidata_response = {}
+        result = await wikidata.search_wikidata(artist.get('name'))
+        
+        if result and 'search' in result and len(result['search']) > 0:
+            wikidata_id = result['search'][0]['id']
+            wikidata_info = await wikidata.get_entity(wikidata_id)
+            
+            wikidata_response['wikidata_id'] = wikidata_id
+            wikidata_response['data'] = wikidata_parser_for_artist(wikidata_info)
+        else:
+            wikidata_response['message'] = 'No results found'
+    except Exception as e:
+        logger.error(f"Error enriching artist {artist.get('id')} with Wikidata: {e}")
+
     
-    if source == "dbpedia":
-        # Search DBpedia for additional information
-        result = await dbpedia.get_artist_info(artist_id)
-        return {"source": "dbpedia", "data": result}
-    
-    elif source == "wikidata":
-        # Get Wikidata information
-        result = await wikidata.get_artist_info(artist_id)
-        return {"source": "wikidata", "data": result}
-    
-    elif source == "getty":
-        # Get Getty vocabulary information
-        result = await getty.search_art_term(artist_id)
-        return {"source": "getty", "data": result}
-    
-    return {"message": "Enrichment complete"}
+    artist['wikidata_enrichment'] = wikidata_response
+    return artist
+
+async def dbpedia_enrichment(artist: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Helper function to enrich artist data with Getty"""
+    pass

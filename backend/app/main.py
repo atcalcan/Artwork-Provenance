@@ -76,7 +76,6 @@ async def root():
             "visualization": "/api/visualization"
         },
         "integrations": [
-            "DBpedia",
             "Wikidata",
             "Getty Vocabularies (AAT, ULAN, TGN)",
             "Romanian Heritage"

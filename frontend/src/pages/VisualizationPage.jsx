@@ -1,10 +1,9 @@
-import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Plot from 'react-plotly.js'
 import { 
   getOverviewStats, 
   getArtworksByType, 
-  getArtworksByCentury,
+  // getArtworksByCentury,
   getTopArtists,
   getTopLocations
 } from '../api'
@@ -20,10 +19,10 @@ const VisualizationPage = () => {
     queryFn: () => getArtworksByType().then(res => res.data)
   })
 
-  const { data: centuryData } = useQuery({
-    queryKey: ['artworksByCentury'],
-    queryFn: () => getArtworksByCentury().then(res => res.data)
-  })
+  // const { data: centuryData } = useQuery({
+  //   queryKey: ['artworksByCentury'],
+  //   queryFn: () => getArtworksByCentury().then(res => res.data)
+  // })
 
   const { data: artistsData } = useQuery({
     queryKey: ['topArtists'],

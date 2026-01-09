@@ -3,7 +3,9 @@ Artworks API router
 Endpoints for managing artworks
 """
 import structlog
+from typing import Dict, Any, Optional
 from fastapi import APIRouter, Query, Request
+from app.services.helpers import wikidata_parser_for_artwork
 from app.services.external_data import DBpediaService, WikidataService, GettyService
 
 logger = structlog.get_logger()
@@ -30,15 +32,15 @@ async def list_artworks(
     
     try:
         filters = {}
-        if type_id:
+        if type_id and type_id != '':
             filters['type_uri'] = f"http://arp-greatteam.org/heritage-provenance/attributes/{type_id}"
-        if material_id:
+        if material_id and material_id != '':
             filters['material_uri'] = f"http://arp-greatteam.org/heritage-provenance/attributes/{material_id}"
-        if subject_id:
+        if subject_id and subject_id != '':
             filters['subject_uri'] = f"http://arp-greatteam.org/heritage-provenance/attributes/{subject_id}"
-        if artist_id:
+        if artist_id and artist_id != '':
             filters['artist_uri'] = f"http://arp-greatteam.org/heritage-provenance/artist/{artist_id}"
-        if location_id:
+        if location_id and location_id != '':
             filters['location_uri'] = f"http://arp-greatteam.org/heritage-provenance/location/{location_id}"
         
         artworks = rdf_service.get_all_artworks(filters=filters, limit=limit)
@@ -69,6 +71,8 @@ async def get_artwork(artwork_id: str, request: Request):
                 "error": "Artwork not found",
                 "artwork_id": artwork_id
             }
+        else:
+            artwork = await wikidata_enrichment(artwork)
         
         return artwork
         
@@ -78,10 +82,30 @@ async def get_artwork(artwork_id: str, request: Request):
             "error": "Failed to retrieve artwork",
             "artwork_id": artwork_id
         }
-
-
-@router.get("/{artwork_id}/enrich")
-async def enrich_artwork(artwork_id: str, source: str = Query(..., regex="^(dbpedia|wikidata|getty)$")):
-    """Enrich artwork data from external sources"""
     
-    artwork_uri = f"http://arp-greatteam.org/heritage-provenance/artwork/{artwork_id}"
+
+
+async def wikidata_enrichment(artwork: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Helper function to enrich artwork data with Wikidata"""
+    
+    if artwork.get('name') is None or artwork.get('name') == '':
+        return artwork
+    
+    try:
+        wikidata_response = {}
+        result = await wikidata.search_wikidata(artwork.get('name'))
+        
+        if result and 'search' in result and len(result['search']) > 0:
+            wikidata_id = result['search'][0]['id']
+            wikidata_info = await wikidata.get_entity(wikidata_id)
+            
+            wikidata_response['wikidata_id'] = wikidata_id
+            wikidata_response['data'] = wikidata_parser_for_artwork(wikidata_info)
+        else:
+            wikidata_response['message'] = 'No results found'
+    except Exception as e:
+        logger.error(f"Error enriching artwork {artwork.get('id')} with Wikidata: {e}")
+
+    
+    artwork['wikidata_enrichment'] = wikidata_response
+    return artwork

@@ -4,13 +4,61 @@ Integrates with DBpedia, Wikidata, Europeana, Getty, and Romanian heritage sourc
 """
 
 import httpx
-from typing import Dict, Any, List, Optional
 import structlog
+from app.config import settings
+from typing import Dict, Any, List, Optional
 from SPARQLWrapper import SPARQLWrapper, JSON
 
-from app.config import settings
 
 logger = structlog.get_logger()
+
+
+class WikidataService:
+    """Service for querying Wikidata"""
+    
+    def __init__(self):
+        self.headers = {
+            'User-Agent': 'HeritageProvenanceSystem/1.0 (https://github.com/onfma/Artwork-Provenance; contact@yahoo.com)'
+        }
+
+    async def search_wikidata(self, search_term):
+        """Search Wikidata entities"""
+        
+        url = "https://www.wikidata.org/w/api.php"
+        params = {
+            'action': 'wbsearchentities',
+            'format': 'json',
+            'language': 'en',
+            'search': search_term
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, headers=self.headers, timeout=10.0)
+                response.raise_for_status()
+                results = response.json()
+                
+                return results
+        
+        except Exception as e:
+            logger.error(f"HTTP error querying Wikidata API: {e}")
+            return None
+    
+    async def get_entity(self, entity_id: str) -> Optional[Dict[str, Any]]:
+        """Get entity details from Wikidata by ID"""
+        url = "https://www.wikidata.org/wiki/Special:EntityData/{}.json".format(entity_id)
+    
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, headers=self.headers, timeout=10.0)
+                response.raise_for_status()
+                return response.json()
+        
+        except Exception as e:
+            logger.error(f"HTTP error getting Wikidata entity {entity_id}: {e}")
+            return None    
+
+
 
 
 class DBpediaService:
@@ -20,6 +68,7 @@ class DBpediaService:
         self.endpoint = SPARQLWrapper(settings.DBPEDIA_SPARQL)
         self.endpoint.setReturnFormat(JSON)
     
+
     async def search_artist(self, artist_name: str) -> Optional[Dict[str, Any]]:
         """Search for artist in DBpedia"""
         query = f"""
@@ -76,94 +125,6 @@ class DBpediaService:
             return results
         except Exception as e:
             logger.error(f"Error querying DBpedia: {e}")
-            return None
-
-
-class WikidataService:
-    """Service for querying Wikidata"""
-    
-    def __init__(self):
-        self.endpoint = SPARQLWrapper(settings.WIKIDATA_SPARQL)
-        self.endpoint.setReturnFormat(JSON)
-        self.endpoint.addCustomHttpHeader("User-Agent", "HeritageProvenanceSystem/1.0")
-    
-    async def search_artist(self, artist_name: str) -> Optional[Dict[str, Any]]:
-        """Search for artist in Wikidata"""
-        query = f"""
-        SELECT ?artist ?artistLabel ?birthDate ?deathDate ?nationality ?nationalityLabel ?image
-        WHERE {{
-            ?artist wdt:P31 wd:Q5 ;
-                    wdt:P106 ?occupation ;
-                    rdfs:label ?artistLabel .
-            ?occupation wdt:P279* wd:Q483501 .
-            FILTER (lang(?artistLabel) = 'en')
-            FILTER (regex(?artistLabel, "{artist_name}", "i"))
-            OPTIONAL {{ ?artist wdt:P569 ?birthDate }}
-            OPTIONAL {{ ?artist wdt:P570 ?deathDate }}
-            OPTIONAL {{ ?artist wdt:P27 ?nationality }}
-            OPTIONAL {{ ?artist wdt:P18 ?image }}
-            SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,ro". }}
-        }}
-        LIMIT 5
-        """
-        
-        try:
-            self.endpoint.setQuery(query)
-            results = self.endpoint.query().convert()
-            return results
-        except Exception as e:
-            logger.error(f"Error querying Wikidata: {e}")
-            return None
-    
-    async def get_artwork_info(self, wikidata_id: str) -> Optional[Dict[str, Any]]:
-        """Get artwork information from Wikidata by ID"""
-        query = f"""
-        SELECT ?artwork ?artworkLabel ?creatorLabel ?inceptionDate ?materialLabel ?locationLabel ?image ?description
-        WHERE {{
-            BIND(wd:{wikidata_id} AS ?artwork)
-            ?artwork wdt:P31 ?artworkType .
-            ?artworkType wdt:P279* wd:Q838948 .
-            OPTIONAL {{ ?artwork wdt:P170 ?creator }}
-            OPTIONAL {{ ?artwork wdt:P571 ?inceptionDate }}
-            OPTIONAL {{ ?artwork wdt:P186 ?material }}
-            OPTIONAL {{ ?artwork wdt:P276 ?location }}
-            OPTIONAL {{ ?artwork wdt:P18 ?image }}
-            OPTIONAL {{ ?artwork schema:description ?description . FILTER(lang(?description) = "en") }}
-            SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,ro". }}
-        }}
-        """
-        
-        try:
-            self.endpoint.setQuery(query)
-            results = self.endpoint.query().convert()
-            return results
-        except Exception as e:
-            logger.error(f"Error querying Wikidata: {e}")
-            return None
-    
-    async def search_location(self, location_name: str) -> Optional[Dict[str, Any]]:
-        """Search for location in Wikidata"""
-        query = f"""
-        SELECT ?location ?locationLabel ?coordinates ?countryLabel
-        WHERE {{
-            ?location rdfs:label ?locationLabel .
-            FILTER (lang(?locationLabel) = 'en')
-            FILTER (regex(?locationLabel, "{location_name}", "i"))
-            ?location wdt:P31 ?type .
-            ?type wdt:P279* wd:Q41176 .
-            OPTIONAL {{ ?location wdt:P625 ?coordinates }}
-            OPTIONAL {{ ?location wdt:P17 ?country }}
-            SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,ro". }}
-        }}
-        LIMIT 5
-        """
-        
-        try:
-            self.endpoint.setQuery(query)
-            results = self.endpoint.query().convert()
-            return results
-        except Exception as e:
-            logger.error(f"Error querying Wikidata: {e}")
             return None
 
 
@@ -285,31 +246,3 @@ class GettyService:
             return None
 
 
-class RomanianHeritageService:
-    """Service for Romanian heritage integration"""
-    
-    def __init__(self):
-        self.api_url = settings.ROMANIAN_HERITAGE_API
-    
-    async def search_monuments(self, query: str) -> Optional[List[Dict[str, Any]]]:
-        """Search Romanian monuments and heritage sites"""
-        # This is a placeholder - actual Romanian heritage API would be implemented here
-        # Could integrate with INP (Institutul Național al Patrimoniului)
-        logger.info(f"Searching Romanian heritage for: {query}")
-        
-        # Mock implementation
-        return [{
-            "name": f"Romanian Heritage: {query}",
-            "type": "monument",
-            "location": "Romania",
-            "description": "Romanian cultural heritage item"
-        }]
-    
-    async def get_romanian_artworks(self, museum: str = None) -> Optional[List[Dict[str, Any]]]:
-        """Get artworks from Romanian museums"""
-        # Integration with Romanian museum databases
-        # Examples: MNAC (Muzeul Național de Artă Contemporană), 
-        # MNAR (Muzeul Național de Artă al României)
-        logger.info(f"Fetching Romanian artworks from museum: {museum or 'all'}")
-        
-        return []

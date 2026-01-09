@@ -1,7 +1,6 @@
-import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { getOverviewStats, getArtworksByType } from '../api'
+import { getOverviewStats } from '../api'
 import { 
   RectangleStackIcon, 
   UserGroupIcon, 
@@ -13,11 +12,6 @@ const HomePage = () => {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['overviewStats'],
     queryFn: () => getOverviewStats().then(res => res.data)
-  })
-
-  const { data: typeDistribution } = useQuery({
-    queryKey: ['artworksByType'],
-    queryFn: () => getArtworksByType().then(res => res.data)
   })
 
   const statCards = [
@@ -62,7 +56,7 @@ const HomePage = () => {
     },
     {
       title: 'Visualizations',
-      description: 'Interactive charts, networks, and maps of artwork data',
+      description: 'Charts, networks, and maps of artwork data',
       link: '/visualization',
       icon: '📊'
     },
@@ -83,7 +77,7 @@ const HomePage = () => {
         </h2>
         <p className="text-xl opacity-90 max-w-3xl">
           A comprehensive platform for modeling and managing artwork provenance with 
-          integration to DBpedia, Wikidata, Getty vocabularies, Europeana, and Romanian heritage.
+          integration to DBpedia, Wikidata, Getty vocabularies and Romanian heritage.
         </p>
         <div className="mt-6 flex space-x-4">
           <Link
@@ -157,7 +151,7 @@ const HomePage = () => {
       <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
         <h3 className="text-2xl font-bold text-white mb-4">External Integrations</h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {['DBpedia', 'Wikidata', 'Getty AAT', 'Getty ULAN', 'Europeana'].map((integration) => (
+          {['DBpedia', 'Wikidata', 'Getty AAT', 'Getty ULAN', 'DATA.GOV.RO'].map((integration) => (
             <div
               key={integration}
               className="bg-gray-700 rounded-lg p-4 text-center"
@@ -178,7 +172,7 @@ const HomePage = () => {
           <p>
             The Heritage Provenance System provides a comprehensive platform for managing the 
             complete lifecycle and ownership history of artistic works. Built on semantic web 
-            technologies and CIDOC-CRM ontology, it enables:
+            technologies with PROV-O and CIDOC-CRM ontology, it enables:
           </p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>Complete provenance chain tracking with events, agents, and locations</li>
