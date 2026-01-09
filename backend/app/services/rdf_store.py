@@ -225,10 +225,7 @@ class RDFStoreService:
         try:
             self.graph.add((location_ref, RDF.type, prov.Location))
             self.graph.add((location_ref, RDF.type, crm.E53_Place))
-            
-            if 'location' in location_data:
-                for loc_name in location_data['location']:
-                    self.graph.add((location_ref, RDFS.label, Literal(loc_name)))
+            self.graph.add((location_ref, RDFS.label, Literal(location_data['location'])))
             
             if 'locationTGN' in location_data and location_data['locationTGN']:
                 self.graph.add((location_ref, OWL.sameAs, URIRef(f"{location_data['locationTGN']}")))

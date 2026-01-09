@@ -186,7 +186,18 @@ class DataImporter:
         creator_ulan = get_attr(cho_element, 'creator', 'dc')
         artist_uri = self._find_or_create_artist(creator_name, creator_ulan)
         
-        location_name = get_text(cho_element, 'spatial', 'dcterms')
+        # location - prefer "țară de proveniență: " or fallback to first spatial
+        location_name = None
+        spatial_elements = cho_element.findall('dcterms:spatial', namespaces)
+        for el in spatial_elements:
+            if el.text and "țară de proveniență: " in el.text:
+                location_name = el.text.replace("țară de proveniență: ", "").strip()
+                break
+        if not location_name and spatial_elements:
+            first_text = spatial_elements[0].text
+            if first_text:
+                location_name = first_text.split(": ", 1)[-1].strip()
+        
         location_tgn = get_attr(cho_element, 'spatial', 'dcterms')
         location_uri = self._find_or_create_location(location_name, location_tgn)
 
