@@ -147,6 +147,9 @@ class RDFStoreService:
             self.graph.add((artwork_ref, RDF.type, crm.E22_Man_Made_Object))
             add_artwork_id(artwork_data.get('inventoryNumber'))
             add_artwork_title(artwork_data.get('title'))
+            
+            if artwork_data.get('imageURL'):
+                self.graph.add((artwork_ref, FOAF.depiction, URIRef(artwork_data.get('imageURL'))))
 
             if artwork_data.get('type_uri'):
                 self.graph.add((artwork_ref, crm.P2_has_type, URIRef(artwork_data.get('type_uri'))))
@@ -154,10 +157,6 @@ class RDFStoreService:
                 self.graph.add((artwork_ref, crm.P15_was_influenced_by, URIRef(artwork_data.get('subject_uri'))))
             if artwork_data.get('material_uri'):
                 self.graph.add((artwork_ref, crm.P45_consists_of, URIRef(artwork_data.get('material_uri'))))
-            if artwork_data.get('provider_uri'):
-                self.graph.add((artwork_ref, crm.P70_documents, URIRef(artwork_data.get('provider_uri'))))
-            if artwork_data.get('institute_uri'):
-                self.graph.add((artwork_ref, crm.P50i_is_currently_held_by, URIRef(artwork_data.get('institute_uri'))))
             logger.info(f"Added artwork to RDF store: {artwork_uri}")
             return True
             
@@ -241,7 +240,7 @@ class RDFStoreService:
             logger.error(f"Error adding location to RDF store: {e}")
             return False
 
-    def add_provenance_event(self, event_uri: str, artwork_uri: str, artist_uri: str, event_type: str, location_uri: str) -> bool:
+    def add_provenance_event(self, event_uri: str, event_data: Dict[str, Any]) -> bool:
         """Add provenance event to RDF store"""
         try:
             prov = self.ns['prov']
@@ -250,11 +249,14 @@ class RDFStoreService:
             
             self.graph.add((event_ref, RDF.type, prov.Activity))
             self.graph.add((event_ref, RDF.type, crm.E12_Production))
-            self.graph.add((event_ref, RDFS.label, Literal(event_type)))
+            self.graph.add((event_ref, RDFS.label, Literal(event_data['type'])))
 
-            self.graph.add((event_ref, crm.P14_carried_out_by, URIRef(artist_uri)))
-            self.graph.add((event_ref, crm.P7_took_place_at, URIRef(location_uri)))
-            self.graph.add((event_ref, crm.P108_has_produced, URIRef(artwork_uri)))
+            self.graph.add((event_ref, crm.P14_carried_out_by, URIRef(event_data['artist_uri'])))
+            self.graph.add((event_ref, crm.P7_took_place_at, URIRef(event_data['location_uri'])))
+            self.graph.add((event_ref, crm.P108_has_produced, URIRef(event_data['artwork_uri'])))
+            self.graph.add((event_ref, crm.P4_has_time_span, Literal(event_data['date'])))
+            self.graph.add((event_ref, crm.P109_has_current_or_former_curator, URIRef(event_data['provider_uri'])))
+            self.graph.add((event_ref, crm.P50i_is_currently_held_by, URIRef(event_data['institute_uri'])))
 
             logger.info(f"Added provenance event to RDF store: {event_uri}")
             return True
@@ -264,7 +266,7 @@ class RDFStoreService:
             return False
 
     ##########################
-    # Querying RDFs
+    # Querying RDFs [SPARQL]
     ##########################
 
     def get_all_artworks(self) -> list:
@@ -287,6 +289,10 @@ class RDFStoreService:
                 ?artwork crm:P102_has_title ?titleNode .
                 ?titleNode crm:P190_has_symbolic_content ?title .
             }
+
+            OPTIONAL {
+                ?artwork foaf:depiction ?imageURL .
+            }
         }
         ORDER BY ?identifier
         """
@@ -303,7 +309,8 @@ class RDFStoreService:
                     'id': artwork_id,
                     'uri': artwork_uri,
                     'inventoryNumber': str(row.identifier) if row.identifier else None,
-                    'title': str(row.title) if row.title else None
+                    'title': str(row.title) if row.title else None,
+                    'imageURL': str(row.imageURL) if row.imageURL else None
                 }
                 artworks.append(artwork_data)
             
@@ -323,9 +330,9 @@ class RDFStoreService:
         PREFIX foaf: <http://xmlns.com/foaf/0.1/>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
         
-        SELECT ?identifier ?title ?type ?typeLabel ?subject ?subjectLabel
-               ?material ?materialLabel ?provider ?institute
-               ?artist ?artistName ?location ?locationName ?event
+        SELECT ?identifier ?title ?imageURL ?type ?typeLabel ?subject ?subjectLabel
+               ?material ?materialLabel 
+               ?artist ?artistName ?location ?locationName ?date ?event
         WHERE {{
             <{artwork_uri}> a prov:Entity ;
                           a crm:E22_Man_Made_Object .
@@ -338,6 +345,10 @@ class RDFStoreService:
             OPTIONAL {{
                 <{artwork_uri}> crm:P102_has_title ?titleNode .
                 ?titleNode crm:P190_has_symbolic_content ?title .
+            }}
+
+            OPTIONAL {{
+                <{artwork_uri}> foaf:depiction ?imageURL .
             }}
             
             OPTIONAL {{
@@ -356,17 +367,10 @@ class RDFStoreService:
             }}
             
             OPTIONAL {{
-                <{artwork_uri}> crm:P70_documents ?provider .
-            }}
-            
-            OPTIONAL {{
-                <{artwork_uri}> crm:P50i_is_currently_held_by ?institute .
-            }}
-            
-            OPTIONAL {{
                 ?event crm:P108_has_produced <{artwork_uri}> ;
                        crm:P14_carried_out_by ?artist ;
-                       crm:P7_took_place_at ?location .
+                       crm:P7_took_place_at ?location ;
+                       crm:P4_has_time_span ?date .
                 ?artist foaf:name ?artistName .
                 ?location rdfs:label ?locationName .
             }}
@@ -384,13 +388,13 @@ class RDFStoreService:
                 'uri': artwork_uri,
                 'inventoryNumber': None,
                 'title': None,
+                'imageURL': None,
+                'artist': None,
+                'location': None,
+                'date': None,
                 'type': None,
                 'subject': None,
                 'material': None,
-                'provider': None,
-                'institute': None,
-                'artist': None,
-                'location': None,
                 'event': None
             }
             
@@ -399,6 +403,8 @@ class RDFStoreService:
                     artwork_data['inventoryNumber'] = str(row.identifier)
                 if row.title:
                     artwork_data['title'] = str(row.title)
+                if row.imageURL:
+                    artwork_data['imageURL'] = str(row.imageURL)
                 if row.typeLabel:
                     artwork_data['type'] = {
                         'uri': str(row.type) if row.type else None,
@@ -414,15 +420,13 @@ class RDFStoreService:
                         'uri': str(row.material) if row.material else None,
                         'label': str(row.materialLabel)
                     }
-                if row.provider:
-                    artwork_data['provider'] = str(row.provider)
-                if row.institute:
-                    artwork_data['institute'] = str(row.institute)
                 if row.artistName:
                     artwork_data['artist'] = {
                         'uri': str(row.artist) if row.artist else None,
                         'name': str(row.artistName)
                     }
+                if row.date:
+                    artwork_data['date'] = str(row.date)
                 if row.locationName:
                     artwork_data['location'] = {
                         'uri': str(row.location) if row.location else None,
@@ -489,7 +493,7 @@ class RDFStoreService:
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         
-        SELECT ?name ?ulan ?artwork ?artworkTitle ?artworkIdentifier
+        SELECT ?name ?ulan ?artwork ?artworkTitle ?artworkIdentifier ?artworkImageURL
         WHERE {{
             <{artist_uri}> a prov:Agent ;
                           a crm:E21_Person ;
@@ -512,6 +516,10 @@ class RDFStoreService:
                 OPTIONAL {{
                     ?artwork crm:P1_is_identified_by ?id .
                     ?id crm:P190_has_symbolic_content ?artworkIdentifier .
+                }}
+
+                OPTIONAL {{
+                    ?artwork foaf:depiction ?artworkImageURL .
                 }}
             }}
         }}
@@ -548,6 +556,7 @@ class RDFStoreService:
                             'id': artwork_id,
                             'uri': artwork_uri,
                             'title': str(row.artworkTitle) if row.artworkTitle else None,
+                            'imageURL': str(row.artworkImageURL) if row.artworkImageURL else None,
                             'inventoryNumber': str(row.artworkIdentifier) if row.artworkIdentifier else None
                         }
             

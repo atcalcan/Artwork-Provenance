@@ -172,7 +172,7 @@ class DataImporter:
             elem = element.find(f'{ns_key}:{tag}', namespaces)
             return elem.text if elem is not None else None
         
-        def get_attr_text(element, tag, ns_key='dc'):
+        def get_attr(element, tag, ns_key='dc'):
             for el in element.findall(f'.//{ns_key}:{tag}', namespaces):
                 val = el.get('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}resource')
                 if val:
@@ -188,25 +188,25 @@ class DataImporter:
             return False
         
         creator_name = get_text(cho_element, 'creator', 'dc')
-        creator_ulan = get_attr_text(cho_element, 'creator', 'dc')
+        creator_ulan = get_attr(cho_element, 'creator', 'dc')
         artist_uri = self._find_or_create_artist(creator_name, creator_ulan)
         
         location_names = get_all_text(cho_element, 'spatial', 'dcterms')
-        location_tgn = get_attr_text(cho_element, 'spatial', 'dcterms')
+        location_tgn = get_attr(cho_element, 'spatial', 'dcterms')
         location_uri = self._find_or_create_location(location_names, location_tgn)
 
 
 
         type_names = get_all_text(cho_element, 'type', 'dc')
-        type_aat = get_attr_text(cho_element, 'type', 'dc')
+        type_aat = get_attr(cho_element, 'type', 'dc')
         type_uri = self._find_or_create_entity('type', type_names, type_aat)
 
         subject_name = get_text(cho_element, 'subject', 'dc')
-        subject_aat = get_attr_text(cho_element, 'subject', 'dc')
+        subject_aat = get_attr(cho_element, 'subject', 'dc')
         subject_uri = self._find_or_create_entity('subject', [subject_name] if subject_name else [], subject_aat)
         
         material_names = get_all_text(cho_element, 'medium', 'dcterms')
-        material_aat = get_attr_text(cho_element, 'medium', 'dcterms')
+        material_aat = get_attr(cho_element, 'medium', 'dcterms')
         material_uri = self._find_or_create_entity('material', material_names, material_aat)
 
         image_url = None
@@ -214,9 +214,9 @@ class DataImporter:
         institute_name = None
         
         if agg is not None:
-            provider_wikidata_link = get_attr_text(agg, 'provider', 'edm')
+            provider_wikidata_link = get_attr(agg, 'provider', 'edm')
             institute_name = get_text(agg, 'dataProvider', 'edm')
-            image_url = get_attr_text(agg, 'isShownBy', 'edm')
+            image_url = get_attr(agg, 'isShownBy', 'edm')
 
         provider_uri = self._find_or_create_entity('provider', [], provider_wikidata_link) if provider_wikidata_link else None
         institute_uri = self._find_or_create_entity('institute', [institute_name] if institute_name else [], None) if institute_name else None
@@ -234,9 +234,7 @@ class DataImporter:
             'imageURL': image_url,
             'type_uri': type_uri,
             'subject_uri': subject_uri,
-            'material_uri': material_uri,
-            'provider_uri': provider_uri,
-            'institute_uri': institute_uri
+            'material_uri': material_uri
         }
         success_artwork = self.rdf_service.add_artwork(artwork_uri, artwork_data)
         
@@ -246,6 +244,16 @@ class DataImporter:
         if artist_uri and location_uri:
             event_id = str(uuid4())
             event_uri = f"{base_uri}event/{event_id}"
-            self.rdf_service.add_provenance_event(event_uri, artwork_uri, artist_uri, 'creation', location_uri)
+            event_data = {
+                'type': 'creation',
+                'artwork_uri': artwork_uri,
+                'artist_uri': artist_uri,
+                'location_uri': location_uri,
+                'date': get_text(cho_element, 'created', 'dcterms'),
+                'provider_uri': provider_uri,
+                'institute_uri': institute_uri
+            }
+            
+            self.rdf_service.add_provenance_event(event_uri, event_data)
         
         return True
