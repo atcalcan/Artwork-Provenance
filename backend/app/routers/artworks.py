@@ -16,14 +16,32 @@ getty = GettyService()
 
 @router.get("/")
 async def list_artworks(
-    request: Request
+    request: Request,
+    type_id: str = Query(None, description="Filter by type ID"),
+    material_id: str = Query(None, description="Filter by material ID"),
+    subject_id: str = Query(None, description="Filter by subject ID"),
+    artist_id: str = Query(None, description="Filter by artist ID"),
+    location_id: str = Query(None, description="Filter by location ID"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of results")
 ):
     """List all artworks with optional filters"""
     
     rdf_service = request.app.state.rdf_service
     
     try:
-        artworks = rdf_service.get_all_artworks()
+        filters = {}
+        if type_id:
+            filters['type_uri'] = f"http://arp-greatteam.org/heritage-provenance/attributes/{type_id}"
+        if material_id:
+            filters['material_uri'] = f"http://arp-greatteam.org/heritage-provenance/attributes/{material_id}"
+        if subject_id:
+            filters['subject_uri'] = f"http://arp-greatteam.org/heritage-provenance/attributes/{subject_id}"
+        if artist_id:
+            filters['artist_uri'] = f"http://arp-greatteam.org/heritage-provenance/artist/{artist_id}"
+        if location_id:
+            filters['location_uri'] = f"http://arp-greatteam.org/heritage-provenance/location/{location_id}"
+        
+        artworks = rdf_service.get_all_artworks(filters=filters, limit=limit)
         return {
             "count": len(artworks),
             "artworks": artworks

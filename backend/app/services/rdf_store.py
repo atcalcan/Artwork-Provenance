@@ -266,32 +266,53 @@ class RDFStoreService:
     # Querying RDFs [SPARQL]
     ##########################
 
-    def get_all_artworks(self) -> list:
-        """Query all artworks from RDF store"""
-        query = """
+    def get_all_artworks(self, filters: Dict[str, str] = None, limit: int = 20) -> list:
+        """Query all artworks from RDF store with optional filters"""
+        
+        filter_clauses = ""
+        
+        if filters:
+            if filters.get('type_uri'):
+                filter_clauses += f"\n            ?artwork crm:P2_has_type <{filters['type_uri']}> ."
+            if filters.get('material_uri'):
+                filter_clauses += f"\n            ?artwork crm:P45_consists_of <{filters['material_uri']}> ."
+            if filters.get('subject_uri'):
+                filter_clauses += f"\n            ?artwork crm:P15_was_influenced_by <{filters['subject_uri']}> ."
+            if filters.get('artist_uri'):
+                filter_clauses += f"""
+            ?event crm:P108_has_produced ?artwork ;
+                   crm:P14_carried_out_by <{filters['artist_uri']}> ."""
+            if filters.get('location_uri'):
+                filter_clauses += f"""
+            ?event crm:P108_has_produced ?artwork ;
+                   crm:P7_took_place_at <{filters['location_uri']}> ."""
+        
+        query = f"""
         PREFIX prov: <http://www.w3.org/ns/prov#>
         PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+        PREFIX foaf: <http://xmlns.com/foaf/0.1/>
         
-        SELECT ?artwork ?identifier ?title
-        WHERE {
+        SELECT DISTINCT ?artwork ?identifier ?title ?imageURL
+        WHERE {{
             ?artwork a prov:Entity ;
-                     a crm:E22_Man_Made_Object .
+                     a crm:E22_Man_Made_Object .{filter_clauses}
             
-            OPTIONAL {
+            OPTIONAL {{
                 ?artwork crm:P1_is_identified_by ?id .
                 ?id crm:P190_has_symbolic_content ?identifier .
-            }
+            }}
             
-            OPTIONAL {
+            OPTIONAL {{
                 ?artwork crm:P102_has_title ?titleNode .
                 ?titleNode crm:P190_has_symbolic_content ?title .
-            }
+            }}
 
-            OPTIONAL {
+            OPTIONAL {{
                 ?artwork foaf:depiction ?imageURL .
-            }
-        }
+            }}
+        }}
         ORDER BY ?identifier
+        LIMIT {limit}
         """
         
         try:
@@ -440,22 +461,32 @@ class RDFStoreService:
             return None
 
 
-    def get_all_artists(self) -> list:
-        """Query all artists from RDF store"""
-        query = """
+    def get_all_artists(self, filters: Dict[str, str] = None, limit: int = 20) -> list:
+        """Query all artists from RDF store with optional filters"""
+        
+        filter_clauses = ""
+        
+        if filters:
+            if filters.get('location_uri'):
+                filter_clauses += f"""
+            ?event crm:P14_carried_out_by ?artist ;
+                   crm:P7_took_place_at <{filters['location_uri']}> ."""
+        
+        query = f"""
         PREFIX prov: <http://www.w3.org/ns/prov#>
         PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
         PREFIX foaf: <http://xmlns.com/foaf/0.1/>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
         
-        SELECT ?artist ?name ?ulan
-        WHERE {
+        SELECT DISTINCT ?artist ?name ?ulan
+        WHERE {{
             ?artist a prov:Agent ;
                     a crm:E21_Person ;
-                    foaf:name ?name .
-            OPTIONAL { ?artist owl:sameAs ?ulan . FILTER(CONTAINS(STR(?ulan), "ulan")) }
-        }
+                    foaf:name ?name .{filter_clauses}
+            OPTIONAL {{ ?artist owl:sameAs ?ulan . FILTER(CONTAINS(STR(?ulan), "ulan")) }}
+        }}
         ORDER BY ?name
+        LIMIT {limit}
         """
         
         try:

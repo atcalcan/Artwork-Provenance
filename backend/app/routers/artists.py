@@ -16,14 +16,20 @@ getty = GettyService()
 
 @router.get("/")
 async def list_artists(
-    request: Request
+    request: Request,
+    location_id: str = Query(None, description="Filter by location ID where they created artworks"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of results")
 ):
     """List all artists with optional filters"""
     
     rdf_service = request.app.state.rdf_service
     
     try:
-        artists = rdf_service.get_all_artists()
+        filters = {}
+        if location_id:
+            filters['location_uri'] = f"http://arp-greatteam.org/heritage-provenance/location/{location_id}"
+        
+        artists = rdf_service.get_all_artists(filters=filters, limit=limit)
         return {
             "count": len(artists),
             "artists": artists
