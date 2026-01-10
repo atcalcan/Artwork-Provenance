@@ -1,9 +1,7 @@
 import structlog
-from typing import Dict, Any
-from app.services.external_data import WikidataService
+from typing import Dict, Any, List
 
 logger = structlog.get_logger()
-wikidata = WikidataService()
 
 ##########################
 # WikiData helpers
@@ -78,7 +76,7 @@ def wikidata_parser_for_artwork(wikidata_data: Dict[str, Any]) -> Dict[str, Any]
             if location_claims:
                 location_id = location_claims[0].get('mainsnak', {}).get('datavalue', {}).get('value', {}).get('id')
                 if location_id:
-                    parsed_data['location'] = wikidata.get_entity_label(location_id)
+                    parsed_data['location_id'] = location_id
             
             # image (P18)
             image_claims = claims.get('P18', [])
@@ -105,6 +103,41 @@ def format_wikidata_date(date_string: str) -> str:
     except Exception as e:
         logger.error(f"Error formatting date {date_string}: {e}")
         return date_string
-    
 
+
+##########################
+# Getty helpers
+##########################
+
+def format_getty_network_artists(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Process Getty SPARQL results and aggregate by artist."""
+    
+    artists_map = {}
+    
+    for row in results:
+        artist_uri = row['connectedArtist']['value']
+        artist_name = row['connectedArtistName']['value']
+        concept_uri = row['concept']['value']
+        concept_name = row['conceptName']['value']
+        
+        if artist_uri not in artists_map:
+            artists_map[artist_uri] = {
+                'artist_uri': artist_uri,
+                'artist_name': artist_name,
+                'shared_concepts': [],
+                'total_connections': 0
+            }
+        
+        connection_info = {
+            'uri': concept_uri,
+            'name': concept_name
+        }
+        
+        artists_map[artist_uri]['shared_concepts'].append(connection_info)
+        artists_map[artist_uri]['total_connections'] += 1
+    
+    connected_artists = list(artists_map.values())
+    connected_artists.sort(key=lambda x: x['total_connections'], reverse=True)
+    
+    return connected_artists
 

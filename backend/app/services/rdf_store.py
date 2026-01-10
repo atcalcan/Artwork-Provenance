@@ -170,11 +170,11 @@ class RDFStoreService:
             crm = self.ns['crm']
             prov = self.ns['prov']
             entity_ref = URIRef(entity_uri)
-            
-            if entity_type == 'provider':
-                self.graph.add((entity_ref, RDF.type, prov.Agent))
+
+            if entity_link:
                 self.graph.add((entity_ref, OWL.sameAs, URIRef(f"{entity_link}")))
-            elif entity_type == 'institute':
+            
+            if entity_type == 'provider' or entity_type == 'institute':
                 self.graph.add((entity_ref, RDF.type, prov.Agent))
             else:
                 self.graph.add((entity_ref, RDFS.label, Literal(entity_name)))
@@ -348,8 +348,10 @@ class RDFStoreService:
         PREFIX foaf: <http://xmlns.com/foaf/0.1/>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
         
-        SELECT ?identifier ?title ?imageURL ?type ?typeLabel ?subject ?subjectLabel
-               ?material ?materialLabel 
+        SELECT ?identifier ?title ?imageURL 
+               ?type ?typeLabel ?typeLink 
+               ?subject ?subjectLabel ?subjectLink
+               ?material ?materialLabel ?materialLink
                ?artist ?artistName ?location ?locationName ?date ?event
         WHERE {{
             <{artwork_uri}> a prov:Entity ;
@@ -372,16 +374,19 @@ class RDFStoreService:
             OPTIONAL {{
                 <{artwork_uri}> crm:P2_has_type ?type .
                 ?type rdfs:label ?typeLabel .
+                ?type owl:sameAs ?typeLink .
             }}
             
             OPTIONAL {{
                 <{artwork_uri}> crm:P15_was_influenced_by ?subject .
                 ?subject rdfs:label ?subjectLabel .
+                ?subject owl:sameAs ?subjectLink .
             }}
             
             OPTIONAL {{
                 <{artwork_uri}> crm:P45_consists_of ?material .
                 ?material rdfs:label ?materialLabel .
+                ?material owl:sameAs ?materialLink .
             }}
             
             OPTIONAL {{
@@ -426,17 +431,20 @@ class RDFStoreService:
                 if row.typeLabel:
                     artwork_data['type'] = {
                         'uri': str(row.type) if row.type else None,
-                        'label': str(row.typeLabel)
+                        'label': str(row.typeLabel),
+                        'link': str(row.typeLink) if row.typeLink else None
                     }
                 if row.subjectLabel:
                     artwork_data['subject'] = {
                         'uri': str(row.subject) if row.subject else None,
-                        'label': str(row.subjectLabel)
+                        'label': str(row.subjectLabel),
+                        'link': str(row.subjectLink) if row.subjectLink else None
                     }
                 if row.materialLabel:
                     artwork_data['material'] = {
                         'uri': str(row.material) if row.material else None,
-                        'label': str(row.materialLabel)
+                        'label': str(row.materialLabel),
+                        'link': str(row.materialLink) if row.materialLink else None
                     }
                 if row.artistName:
                     artwork_data['artist'] = {
@@ -595,6 +603,31 @@ class RDFStoreService:
             
         except Exception as e:
             logger.error(f"Error querying artist details: {e}")
+            return None
+
+    def get_artist_by_getty_id(self, artist_getty_id) -> Dict[str, Any]:
+        """Query specific artist by Getty ULAN ID from RDF store"""
+        
+        query = f"""
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        
+        SELECT ?artist
+        WHERE {{
+            ?artist owl:sameAs <http://vocab.getty.edu/ulan/{artist_getty_id}> .
+        }}
+        """
+        
+        try:
+            results = self.graph.query(query)
+            artists = []
+            for row in results:
+                artist_uri = str(row.artist)
+                artists.append(self.get_artist(artist_uri))
+            
+            return artists
+            
+        except Exception as e:
+            logger.error(f"Error querying artist by Getty ID: {e}")
             return None
 
 

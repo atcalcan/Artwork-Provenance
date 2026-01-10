@@ -5,10 +5,13 @@ Endpoints for generating visualization data
 
 import structlog
 from typing import Dict, Any
+from app.services.external_data import GettyService
 from fastapi import APIRouter, HTTPException, Request, Query
 
 logger = structlog.get_logger()
 router = APIRouter()
+getty = GettyService()
+
 
 
 @router.get("/statistics/overview")
@@ -212,7 +215,6 @@ async def get_top_locations(request: Request, limit: int = Query(10, ge=1, le=50
         logger.error(f"Error getting top locations: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # @router.get("/map/locations")
 # async def get_location_map(request: Request):
 #     """Get map visualization data for artwork locations"""
@@ -258,3 +260,71 @@ async def get_top_locations(request: Request, limit: int = Query(10, ge=1, le=50
 #     except Exception as e:
 #         logger.error(f"Error generating location map: {e}")
 #         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/statistics/top-artworks-types")
+async def get_top_artworks_types(request: Request, limit: int = Query(15, ge=1, le=50)):
+    """Get top artwork types by number of artworks, optionally enriched with Getty AAT"""
+    
+    rdf_service = request.app.state.rdf_service
+    
+    query = f"""
+    PREFIX prov: <http://www.w3.org/ns/prov#>
+    PREFIX crm:  <http://www.cidoc-crm.org/cidoc-crm/>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    
+    SELECT ?type ?typeLabel ?link (COUNT(?artwork) as ?artwork_count)
+    WHERE {{
+        ?artwork a prov:Entity ;
+                crm:P2_has_type ?type .
+        ?type rdfs:label ?typeLabel .
+        OPTIONAL {{ ?type owl:sameAs ?link }}
+    }}
+    GROUP BY ?type ?typeLabel ?link
+    ORDER BY DESC(?artwork_count)
+    LIMIT {limit}
+    """
+    
+    try:
+        results = rdf_service.execute_sparql(query)
+        
+        types = []
+        for row in results:
+            type_data = {
+                "type_uri": str(row.type),
+                "type_label": str(row.typeLabel),
+                "type_link": str(row.link) if row.link else None,
+                "artwork_count": int(row.artwork_count)
+            }
+        
+        return {
+            "chart_type": "bar",
+            "title": f"Top {limit} Artwork Types",
+            "data": type_data
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting top artwork types: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.get("/statistics/network/artists/{artist_id}")
+async def get_network_artists(request: Request, artist_id: str):
+    """ Get network of artists connected to a specific artist by student_of/teacher_of relationships """
+    
+    rdf_service = request.app.state.rdf_service
+    artist_uri = f"http://arp-greatteam.org/heritage-provenance/artist/{artist_id}"
+
+    try:
+        artist_data = rdf_service.get_artist(artist_uri)
+
+        if artist_data is None or artist_data.get('getty') is None:
+            return {"message": "No Getty link available for this artist."}
+        
+        network = await getty.get_artist_network(artist_data['getty'])
+        return network 
+        
+    
+    except Exception as e:
+        logger.error(f"Error retrieving artist network for {artist_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
