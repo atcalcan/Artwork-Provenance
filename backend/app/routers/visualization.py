@@ -13,7 +13,6 @@ router = APIRouter()
 getty = GettyService()
 
 
-
 @router.get("/statistics/overview")
 async def get_overview_statistics(request: Request) -> Dict[str, Any]:
     """Get overview statistics for dashboard"""
@@ -80,27 +79,27 @@ async def get_overview_statistics(request: Request) -> Dict[str, Any]:
         logger.error(f"Error getting statistics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/statistics/by-type")
-async def get_artworks_by_type(request: Request):
+async def get_artworks_by_type(request: Request, limit: int = Query(10, ge=1, le=50)):
     """Get distribution of artworks by type"""
     
     rdf_service = request.app.state.rdf_service
     
-    query = """
+    query = f"""
     PREFIX prov: <http://www.w3.org/ns/prov#>
     PREFIX crm:  <http://www.cidoc-crm.org/cidoc-crm/>
     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
     SELECT ?typeLabel (COUNT(?artwork) AS ?artwork_count)
-    WHERE {
+    WHERE {{
         ?artwork a prov:Entity ;
                 crm:P2_has_type ?type .
 
         ?type rdfs:label ?typeLabel .
-    }
+    }}
     GROUP BY ?type ?typeLabel
     ORDER BY DESC(?artwork_count)
+    LIMIT {limit}
     """
     
     try:
@@ -123,6 +122,48 @@ async def get_artworks_by_type(request: Request):
         logger.error(f"Error getting artwork distribution: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/statistics/by-material")
+async def get_artworks_by_material(request: Request, limit: int = Query(10, ge=1, le=50)):
+    """Get distribution of artworks by material"""
+    
+    rdf_service = request.app.state.rdf_service
+    
+    query = f"""
+    PREFIX prov: <http://www.w3.org/ns/prov#>
+    PREFIX crm:  <http://www.cidoc-crm.org/cidoc-crm/>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+    SELECT ?materialLabel (COUNT(?artwork) AS ?artwork_count)
+    WHERE {{
+        ?artwork a prov:Entity ;
+                crm:P45_consists_of ?material .
+
+        ?material rdfs:label ?materialLabel .
+    }}
+    GROUP BY ?material ?materialLabel
+    ORDER BY DESC(?artwork_count)
+    LIMIT {limit}
+    """
+    
+    try:
+        results = rdf_service.execute_sparql(query)
+        
+        distribution = []
+        for row in results:
+            distribution.append({
+                "material": str(row.materialLabel),
+                "count": int(row.artwork_count)
+            })
+        
+        return {
+            "chart_type": "pie",
+            "title": "Artworks by Material",
+            "data": distribution
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting artwork distribution: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/statistics/top-artists")
 async def get_top_artists(request: Request, limit: int = Query(10, ge=1, le=50)):
@@ -169,7 +210,6 @@ async def get_top_artists(request: Request, limit: int = Query(10, ge=1, le=50))
         logger.error(f"Error getting top artists: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/statistics/top-locations")
 async def get_top_locations(request: Request, limit: int = Query(10, ge=1, le=50)):
     """Get top locations by number of artworks"""
@@ -215,98 +255,68 @@ async def get_top_locations(request: Request, limit: int = Query(10, ge=1, le=50
         logger.error(f"Error getting top locations: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# @router.get("/map/locations")
-# async def get_location_map(request: Request):
-#     """Get map visualization data for artwork locations"""
-    
-#     rdf_service = request.app.state.rdf_service
-    
-#     query = """
-#     PREFIX hp: <http://arp-greatteam.org/heritage-provenance#>
-#     PREFIX dcterms: <http://purl.org/dc/terms/>
-#     PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
-    
-#     SELECT ?location ?name ?lat ?long (COUNT(?artwork) as ?artwork_count)
-#     WHERE {
-#         ?artwork a hp:ArtisticWork ;
-#                  hp:currentLocation ?location .
-#         ?location foaf:name ?name .
-#         OPTIONAL { ?location geo:lat ?lat }
-#         OPTIONAL { ?location geo:long ?long }
-#     }
-#     GROUP BY ?location ?name ?lat ?long
-#     """
-    
-#     try:
-#         results = rdf_service.execute_sparql(query)
-        
-#         markers = []
-#         for binding in results['results']['bindings']:
-#             if binding.get('lat') and binding.get('long'):
-#                 markers.append({
-#                     "location_uri": binding.get('location'),
-#                     "name": binding.get('name'),
-#                     "latitude": float(binding.get('lat')),
-#                     "longitude": float(binding.get('long')),
-#                     "artwork_count": int(binding.get('artwork_count', 0))
-#                 })
-        
-#         return {
-#             "map_type": "markers",
-#             "markers": markers,
-#             "center": {"lat": 45.9432, "lng": 24.9668}  # Romania center
-#         }
-        
-#     except Exception as e:
-#         logger.error(f"Error generating location map: {e}")
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/statistics/top-artworks-types")
-async def get_top_artworks_types(request: Request, limit: int = Query(15, ge=1, le=50)):
-    """Get top artwork types by number of artworks, optionally enriched with Getty AAT"""
+@router.get("/map/locations")
+async def get_location_map(request: Request):
+    """Get map visualization data for artwork locations"""
     
     rdf_service = request.app.state.rdf_service
+
+    continents = {
+        "Europe": {"lat": 54.5260, "lng": 15.2551},
+        "Asia": {"lat": 34.0479, "lng": 100.6197},
+        "Africa": {"lat": -8.7832, "lng": 34.5085},
+        "North America": {"lat": 54.5260, "lng": -105.2551},
+        "South America": {"lat": -8.7832, "lng": -55.4915},
+        "Australia": {"lat": -25.2744, "lng": 133.7751}
+    }
     
-    query = f"""
+    query = """
     PREFIX prov: <http://www.w3.org/ns/prov#>
     PREFIX crm:  <http://www.cidoc-crm.org/cidoc-crm/>
-    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    PREFIX owl:  <http://www.w3.org/2002/07/owl#>
     
-    SELECT ?type ?typeLabel ?link (COUNT(?artwork) as ?artwork_count)
-    WHERE {{
-        ?artwork a prov:Entity ;
-                crm:P2_has_type ?type .
-        ?type rdfs:label ?typeLabel .
-        OPTIONAL {{ ?type owl:sameAs ?link }}
-    }}
-    GROUP BY ?type ?typeLabel ?link
-    ORDER BY DESC(?artwork_count)
-    LIMIT {limit}
+    SELECT ?location ?locationTGN (COUNT(?artwork) AS ?artworks_count)
+    WHERE {
+        ?location a prov:Location ;
+                  owl:sameAs ?locationTGN .
+        FILTER(CONTAINS(STR(?locationTGN), "tgn"))
+        
+        ?event crm:P7_took_place_at ?location ;
+               crm:P108_has_produced ?artwork .
+    }
+    GROUP BY ?location ?locationTGN
+    ORDER BY DESC(?artworks_count)
     """
     
     try:
         results = rdf_service.execute_sparql(query)
         
-        types = []
+        markers = []
         for row in results:
-            type_data = {
-                "type_uri": str(row.type),
-                "type_label": str(row.typeLabel),
-                "type_link": str(row.link) if row.link else None,
-                "artwork_count": int(row.artwork_count)
-            }
-        
+            location_getty = str(row.locationTGN)
+            artworks_count = int(row.artworks_count)
+
+            logger.debug(f"Processing location: {location_getty} with {artworks_count} artworks")
+            
+            broader_location = await getty.get_location_parent(location_getty)
+            # if broader_location and broader_location in continents:
+            #     coord = continents[broader_location]
+            #     markers.append({
+            #         "lat": coord["lat"],
+            #         "lng": coord["lng"],
+            #         "artworks_count": artworks_count
+            #     })
+
         return {
-            "chart_type": "bar",
-            "title": f"Top {limit} Artwork Types",
-            "data": type_data
+            "map_type": "markers",
+            "markers": markers,
+            "center": {"lat": 45.9432, "lng": 24.9668}  # Romania center
         }
         
     except Exception as e:
-        logger.error(f"Error getting top artwork types: {e}")
+        logger.error(f"Error generating location map: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 
 @router.get("/statistics/network/artists/{artist_id}")
 async def get_network_artists(request: Request, artist_id: str):
@@ -328,3 +338,4 @@ async def get_network_artists(request: Request, artist_id: str):
     except Exception as e:
         logger.error(f"Error retrieving artist network for {artist_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    

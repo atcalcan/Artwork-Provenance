@@ -6,9 +6,8 @@ Integrates with Wikidata, Getty, and Romanian heritage sources
 import httpx
 import structlog
 from app.config import settings
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from SPARQLWrapper import SPARQLWrapper, JSON
-from app.services import format_getty_network_artists
 
 
 logger = structlog.get_logger()
@@ -120,6 +119,39 @@ class GettyService:
             logger.error(f"Error querying Getty for Wikidata ID: {e}")
             return None
     
+    async def get_location_parent(self, location_link: str) -> Optional[str]:
+        """Get broader location from Getty TGN"""
+        
+        location_id = "tgn:" + location_link.split("/")[-1]
+        logger.debug(f"Getting broader location for Getty TGN ID: {location_id}")
+        
+        query = f"""
+        PREFIX tgn: <http://vocab.getty.edu/tgn/>
+        PREFIX gvp: <http://vocab.getty.edu/ontology#>
+
+        SELECT ?broaderLocation
+        WHERE {{
+            {location_id} gvp:parentString ?broaderLocation .
+        }}
+        LIMIT 1
+        """
+        
+        try:
+            # self.endpoint.setQuery(query)
+            # results = self.endpoint.query().convert()
+            # bindings = results.get("results", {}).get("bindings", [])
+            # logger.debug(f"Getty broader location query results: {bindings}")
+            
+            # if bindings:
+            #     broader_location = bindings[0]["broaderLocation"]["value"]
+            #     return broader_location
+            
+            return None
+        
+        except Exception as e:
+            logger.error(f"Error querying Getty for broader location: {e}")
+            return None
+
     async def get_artist_network(self, artist_getty_link: str) -> Dict[str, Any]:
         """Get artist network based on student_of/teacher_of relationships from Getty ULAN"""
 
