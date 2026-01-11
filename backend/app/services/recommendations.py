@@ -191,7 +191,7 @@ class RecommendationEngine:
             artwork_events = set(event.event_type for event in artwork.provenance_chain)
             event_overlap = len(target_events & artwork_events) / len(target_events | artwork_events)
             if event_overlap > 0:
-                score += event_overlap * 0.3
+                score += event_overlap * 0.4
                 if event_overlap > 0.5:
                     reasons.append("Similar provenance event types")
             
@@ -203,7 +203,7 @@ class RecommendationEngine:
             if target_locations and artwork_locations:
                 location_overlap = len(target_locations & artwork_locations) / len(target_locations | artwork_locations)
                 if location_overlap > 0:
-                    score += location_overlap * 0.4
+                    score += location_overlap * 0.6
                     shared_locations = target_locations & artwork_locations
                     if shared_locations:
                         reasons.append(f"Shared provenance locations: {', '.join(list(shared_locations)[:2])}")

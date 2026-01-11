@@ -60,12 +60,6 @@ const HomePage = () => {
       link: '/visualization',
       icon: '📊'
     },
-    {
-      title: 'Romanian Heritage',
-      description: 'Discover Romanian cultural heritage and artworks',
-      link: '/romanian-heritage',
-      icon: '🏛️'
-    }
   ]
 
   return (
@@ -180,7 +174,6 @@ const HomePage = () => {
             <li>SPARQL endpoint for advanced querying and federated queries</li>
             <li>Interactive visualizations including network graphs and maps</li>
             <li>Recommendation engine for discovering similar artworks</li>
-            <li>Special focus on Romanian cultural heritage</li>
           </ul>
         </div>
       </div>

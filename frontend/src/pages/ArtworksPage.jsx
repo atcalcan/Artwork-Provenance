@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { getArtworks } from '../api'
@@ -18,7 +18,7 @@ const ArtworksPage = () => {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['artworks', filters],
-    queryFn: () => getArtworks(filters).then(res => res.data)
+    queryFn: () => getArtworks(filters).then(res => res.data.artworks)
   })
 
   const artworkTypes = [
@@ -119,9 +119,15 @@ const ArtworksPage = () => {
                 className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700 hover:border-indigo-500 transition group"
               >
                 {/* Image placeholder */}
-                <div className="h-48 bg-gray-700 flex items-center justify-center">
-                  <span className="text-6xl">🎨</span>
-                </div>
+                {artwork.imageURL ? (
+                  <img src={artwork.imageURL} alt={artwork.title} className="w-full h-48 object-cover" />
+                ) : (
+                  <div className="h-48 bg-gray-700 flex items-center justify-center">
+                    <span className="text-6xl">🎨</span>
+                  </div>
+                )}
+                
+                
 
                 {/* Content */}
                 <div className="p-4">

@@ -16,7 +16,6 @@ const Layout = ({ children }) => {
     { name: 'Artworks', href: '/artworks', icon: RectangleStackIcon },
     { name: 'Visualizations', href: '/visualization', icon: ChartBarIcon },
     { name: 'SPARQL Query', href: '/sparql', icon: CommandLineIcon },
-    { name: 'Romanian Heritage', href: '/romanian-heritage', icon: MapIcon },
   ]
 
   const isActive = (path) => location.pathname === path

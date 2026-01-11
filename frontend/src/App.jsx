@@ -19,7 +19,6 @@ function App() {
         <Route path="/provenance/:id" element={<ProvenancePage />} />
         <Route path="/sparql" element={<SPARQLPage />} />
         <Route path="/visualization" element={<VisualizationPage />} />
-        <Route path="/romanian-heritage" element={<RomanianHeritagePage />} />
       </Routes>
     </Layout>
   )

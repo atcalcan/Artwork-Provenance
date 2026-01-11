@@ -77,7 +77,7 @@ const VisualizationPage = () => {
         )}
 
         {/* Artworks by Century */}
-        {centuryData && centuryData.data && centuryData.data.length > 0 && (
+        {/* {centuryData && centuryData.data && centuryData.data.length > 0 && (
           <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
             <h3 className="text-xl font-semibold text-white mb-4">{centuryData.title}</h3>
             <Plot
@@ -99,7 +99,7 @@ const VisualizationPage = () => {
               style={{ width: '100%' }}
             />
           </div>
-        )}
+        )} */}
 
         {/* Top Artists */}
         {artistsData && artistsData.data && artistsData.data.length > 0 && (

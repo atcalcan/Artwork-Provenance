@@ -33,6 +33,68 @@ class ArtworkType(str, Enum):
     ARTIFACT = "artifact"
     INSTALLATION = "installation"
 
+    @classmethod
+    def from_text(cls, text: str) -> "ArtworkType":
+        """
+        Determine artwork type from text description (multilingual).
+        Matches keywords for Romanian and English terms.
+        """
+
+        if not text:
+            return cls.PAINTING
+        
+        if isinstance(text, dict):
+            if 'label' in text.keys():
+                text = text['label']
+            
+        text = text.lower()
+        
+        # Drawing / Graphics
+        if any(w in text for w in [
+            "desen", "drawing", "schiță", "schita", "sketch", "creion", "pencil", 
+            "cărbune", "charcoal", "tuș", "ink", "pastel", "grafică", "graphic"
+        ]):
+            return cls.DRAWING
+            
+        # Prints
+        if any(w in text for w in [
+            "gravură", "gravura", "print", "litografie", "lithograph", "acvaforte", 
+            "etching", "xilogravură", "woodcut", "stampă", "serigrafie"
+        ]):
+            return cls.PRINT
+            
+        # Photography
+        if any(w in text for w in [
+            "fotografie", "fotografia", "photograph", "photo", "foto", 
+            "negativ", "negative", "daguerreotype"
+        ]):
+            return cls.PHOTOGRAPH
+            
+        # Manuscript
+        if any(w in text for w in ["manuscris", "manuscript", "document", "scrisoare", "letter", "incunabul", "carte"]):
+            return cls.MANUSCRIPT
+            
+        # Installation
+        if any(w in text for w in ["instalație", "instalatie", "installation"]):
+            return cls.INSTALLATION
+            
+        # Artifacts
+        if any(w in text for w in [
+            "artefact", "artifact", "ceramică", "ceramic", "pottery", "porțelan", 
+            "textil", "textile", "covor", "carpet", "tapiserie", "monedă", "coin", 
+            "bijuterie", "jewelry", "mobilier", "furniture", "vas", "vessel"
+        ]):
+            return cls.ARTIFACT
+            
+        # Sculpture (check materials often used in sculpture)
+        if any(w in text for w in ["sculptură", "sculptura", "sculpture", "statuie", "statue", "bust", "relief", "bronz", "bronze", "marmură", "marble", "ronde-bosse"]):
+            return cls.SCULPTURE
+
+        # Painting (Default for "ulei", "canvas", etc, and explicit "pictura")
+        # Note: "Painting" is also the default fallback if nothing matches
+        
+        return cls.PAINTING
+
 
 class ExternalLink(BaseModel):
     """External resource link"""
