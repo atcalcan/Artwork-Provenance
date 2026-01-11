@@ -1,0 +1,15 @@
+services:
+  # Backend Service
+  - type: web
+    name: artwork-provenance-backend
+    runtime: docker
+    plan: free
+    region: frankfurt # Choose a region close to you (e.g., oregon, ohio, frankfurt, singapore)
+    dockerContext: backend
+    dockerfilePath: backend/Dockerfile
+    envVars:
+      - key: PORT
+        value: 8000
+    # Health check ensures the app is running before switching traffic
+    healthCheckPath: /docs 
+    autoDeploy: true

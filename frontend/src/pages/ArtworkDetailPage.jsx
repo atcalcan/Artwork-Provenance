@@ -25,6 +25,12 @@ const ArtworkDetailPage = () => {
     enabled: !!id
   })
 
+  const { data: provenanceData, isLoading: provenanceLoading } = useQuery({
+    queryKey: ['provenance', id],
+    queryFn: () => fetch(`http://localhost:8000/api/provenance/${id}/chain`).then(res => res.json()),
+    enabled: !!id
+  })
+
   if (artworkLoading) {
     return (
       <div className="text-center py-12">
@@ -161,12 +167,16 @@ const ArtworkDetailPage = () => {
           {/* Provenance Link */}
           <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700" vocab="http://www.w3.org/ns/prov#">
             <h3 className="text-lg font-semibold text-white mb-4">Provenance History</h3>
-            {artwork.provenance_chain && artwork.provenance_chain.length > 0 ? (
+            {provenanceLoading ? (
+              <div className="text-center py-4">
+                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
+              </div>
+            ) : provenanceData && provenanceData.chain && provenanceData.chain.length > 0 ? (
               <div className="space-y-4">
-                {artwork.provenance_chain.map((event, index) => (
+                {provenanceData.chain.map((event, index) => (
                   <div key={index} typeof="Activity" className="border-l-2 border-indigo-500 pl-4 py-1">
                     <div className="flex flex-col">
-                      <span className="font-bold text-white" property="type">{event.event_type}</span>
+                      <span className="font-bold text-white" property="type">{event.type}</span>
                       <span className="text-sm text-gray-400" property="startedAtTime">{event.date}</span>
                       {event.location && (
                         <span className="text-sm text-gray-300" property="atLocation" typeof="Location">

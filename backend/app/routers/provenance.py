@@ -63,8 +63,6 @@ async def get_provenance_chain(artwork_id: str, request: Request):
     rdf_service = request.app.state.rdf_service
     artwork_uri = f"http://arp-greatteam.org/heritage-provenance/artwork/{artwork_id}"
 
-    rdf_service = request.app.state.rdf_service
-    
     try:
         chain = rdf_service.get_provenance_chain(artwork_uri)
         return {
