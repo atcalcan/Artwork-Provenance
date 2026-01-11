@@ -10,6 +10,8 @@ services:
     envVars:
       - key: PORT
         value: 8000
+      - key: ALLOWED_ORIGINS
+        value: "*" # Security: Update this to your Vercel URL (e.g., https://your-project.vercel.app) after deployment
     # Health check ensures the app is running before switching traffic
-    healthCheckPath: /docs 
+    healthCheckPath: /api/docs 
     autoDeploy: true
