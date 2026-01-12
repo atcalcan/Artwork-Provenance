@@ -31,6 +31,17 @@ const ArtworkDetailPage = () => {
     enabled: !!id
   })
 
+  const artistId = artwork?.artist?.uri?.split('/').pop()
+  const isUnknownArtist = !artwork?.artist?.name || 
+    artwork?.artist?.name?.toLowerCase().includes('unknown') || 
+    artwork?.artist?.name?.toLowerCase().includes('anonymous')
+
+  const { data: artistData } = useQuery({
+    queryKey: ['artist', artistId],
+    queryFn: () => fetch(`http://localhost:8000/api/artists/${artistId}`).then(res => res.json()),
+    enabled: !!artistId && !isUnknownArtist
+  })
+
   if (artworkLoading) {
     return (
       <div className="text-center py-12">
@@ -86,10 +97,16 @@ const ArtworkDetailPage = () => {
           </div>
 
           <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700 space-y-4">
-            <div className="flex items-center space-x-3 text-gray-300" property="creator" typeof={artwork.artist?.type === 'Organization' ? 'Organization' : 'Person'}>
+            <div className="flex items-center space-x-3 text-gray-300" property="creator" typeof={artwork.artist?.type === 'Organization' ? 'Organization' : 'Person'} resource={artwork.artist?.uri}>
               <UserIcon className="h-5 w-5 text-indigo-400" />
               <span className="font-medium">Artist:</span>
-              <span property="name">{artwork.artist?.name || 'Unknown'}</span>
+              {artistId && !isUnknownArtist ? (
+                <Link to={`/artists/${artistId}`} className="hover:text-indigo-400 transition underline decoration-dotted" property="name">
+                  {artwork.artist?.name}
+                </Link>
+              ) : (
+                <span property="name">{artwork.artist?.name || 'Unknown'}</span>
+              )}
             </div>
             
             <div className="flex items-center space-x-3 text-gray-300">
@@ -163,6 +180,99 @@ const ArtworkDetailPage = () => {
               </div>
             )}
           </div>
+          
+          {/* Artist Details Section */}
+          {artistData && !artistData.error && !isUnknownArtist && (
+            <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700" about={artistData.uri} typeof={artistData.type === 'Organization' ? 'Organization' : 'Person'}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-white">About the Artist</h3>
+                <Link to={`/artists/${artistId}`} className="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                  View Full Profile <span>→</span>
+                </Link>
+              </div>
+              <div className="flex flex-col md:flex-row gap-6">
+                {artistData.wikidata_enrichment?.data?.image_url && (
+                  <div className="w-24 h-24 flex-shrink-0">
+                    <img 
+                      src={artistData.wikidata_enrichment.data.image_url} 
+                      alt={artistData.name} 
+                      className="w-full h-full object-cover rounded-full border-2 border-indigo-500"
+                      property="image"
+                    />
+                  </div>
+                )}
+                <div className="space-y-2 flex-1">
+                  <div className="flex justify-between items-start">
+                    <Link to={`/artists/${artistId}`} className="hover:underline">
+                      <h4 className="text-xl font-medium text-indigo-400" property="name">{artistData.name}</h4>
+                    </Link>
+                    {artistData.wikidata_enrichment?.wikidata_id && (
+                       <a 
+                         href={`https://www.wikidata.org/wiki/${artistData.wikidata_enrichment.wikidata_id}`}
+                         target="_blank"
+                         rel="noopener noreferrer"
+                         className="text-xs text-gray-500 hover:text-indigo-400"
+                         property="sameAs"
+                       >
+                         Wikidata ↗
+                       </a>
+                    )}
+                  </div>
+                  
+                  {artistData.wikidata_enrichment?.data && (
+                    <>
+                      {(artistData.wikidata_enrichment.data.birth_date || artistData.wikidata_enrichment.data.death_date) && (
+                        <p className="text-sm text-gray-400">
+                          <span property="birthDate">{artistData.wikidata_enrichment.data.birth_date || '?'}</span> — 
+                          {artistData.wikidata_enrichment.data.death_date ? (
+                            <span property="deathDate">{artistData.wikidata_enrichment.data.death_date}</span>
+                          ) : (
+                            artistData.wikidata_enrichment.data.birth_date ? 'Present' : '?'
+                          )}
+                        </p>
+                      )}
+                      
+                      {artistData.wikidata_enrichment.data.nationality && (
+                        <p className="text-sm text-gray-400 flex items-center gap-1">
+                          <MapPinIcon className="h-3 w-3" />
+                          <span property="nationality">{artistData.wikidata_enrichment.data.nationality}</span>
+                        </p>
+                      )}
+                      
+                      {artistData.wikidata_enrichment.data.description && (
+                        <p className="text-gray-300 text-sm leading-relaxed line-clamp-3" property="description">
+                          {artistData.wikidata_enrichment.data.description}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {artistData.artworks && artistData.artworks.length > 1 && (
+                <div className="mt-6 pt-4 border-t border-gray-700">
+                  <p className="text-sm font-medium text-gray-400 mb-3">Other works by this artist:</p>
+                  <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                    {artistData.artworks
+                      .filter(a => a.id !== id)
+                      .slice(0, 6)
+                      .map(work => (
+                      <Link key={work.id} to={`/artworks/${work.id}`} className="flex-shrink-0 w-20 group">
+                        <div className="h-20 w-20 bg-gray-700 rounded overflow-hidden mb-1 border border-gray-600 group-hover:border-indigo-500 transition">
+                          {work.imageURL ? (
+                            <img src={work.imageURL} alt={work.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-lg">🎨</div>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-gray-400 truncate group-hover:text-indigo-400">{work.title || 'Untitled'}</p>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           
           {/* Provenance Link */}
           <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700" vocab="http://www.w3.org/ns/prov#">

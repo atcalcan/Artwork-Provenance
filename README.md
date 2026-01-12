@@ -6,7 +6,7 @@ A comprehensive full-stack web application for modeling, managing, and visualizi
 
 ### Core Functionality
 - **Artwork Management**: Track artworks with detailed metadata
-- **Artist Profiles**: Manage artist information with external data enrichment
+- **Artist Profiles**: Dedicated pages with biography, timeline, artwork gallery, and external data enrichment (Wikidata)
 - **Provenance Tracking**: Document complete ownership and location history of artworks
 - **SPARQL Endpoint**: Query the RDF knowledge graph using SPARQL
 - **Visualization**: Interactive network graphs and timeline visualizations
@@ -16,6 +16,7 @@ A comprehensive full-stack web application for modeling, managing, and visualizi
 - **CIDOC-CRM Ontology**: Industry-standard cultural heritage modeling
 - **PROV-O**: W3C provenance ontology for tracking artwork history
 - **RDF Triple Store**: Knowledge graph storage using RDFLib
+- **RDFa Integration**: Frontend components annotated with Schema.org vocabulary for machine-readable metadata
 - **External Data Sources**:
   - Wikidata for additional contextual data
   - Getty AAT (Art & Architecture Thesaurus) for terminology
@@ -121,6 +122,7 @@ A comprehensive full-stack web application for modeling, managing, and visualizi
 ### Artists
 - `GET /api/artists` - List all artists
 - `GET /api/artists/{id}` - Get artist details
+- `GET /api/artists/getty/{id}` - Get artist details by Getty ID
 
 ### Provenance
 - `GET /api/provenance/{artwork_id}` - Get provenance chain
