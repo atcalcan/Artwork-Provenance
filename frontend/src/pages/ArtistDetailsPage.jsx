@@ -1,7 +1,7 @@
 import React from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { getArtworks } from '../api'
+import { getArtworks, getArtist } from '../api'
 import { 
   UserIcon, 
   CalendarIcon, 
@@ -17,7 +17,7 @@ const ArtistDetailsPage = () => {
   // Fetch Artist Details
   const { data: artist, isLoading: artistLoading, error: artistError } = useQuery({
     queryKey: ['artist', id],
-    queryFn: () => fetch(`http://localhost:8000/api/artists/${id}`).then(res => res.json())
+    queryFn: () => getArtist(id).then(res => res.data)
   })
 
   // Fetch Artworks by Artist

@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { getArtwork, getRecommendations } from '../api'
+import { getArtwork, getRecommendations, getProvenanceChain, getArtist } from '../api'
 import { 
   MapPinIcon, 
   CalendarIcon, 
@@ -27,7 +27,7 @@ const ArtworkDetailPage = () => {
 
   const { data: provenanceData, isLoading: provenanceLoading } = useQuery({
     queryKey: ['provenance', id],
-    queryFn: () => fetch(`http://localhost:8000/api/provenance/${id}/chain`).then(res => res.json()),
+    queryFn: () => getProvenanceChain(id).then(res => res.data),
     enabled: !!id
   })
 
@@ -38,7 +38,7 @@ const ArtworkDetailPage = () => {
 
   const { data: artistData } = useQuery({
     queryKey: ['artist', artistId],
-    queryFn: () => fetch(`http://localhost:8000/api/artists/${artistId}`).then(res => res.json()),
+    queryFn: () => getArtist(artistId).then(res => res.data),
     enabled: !!artistId && !isUnknownArtist
   })
 
