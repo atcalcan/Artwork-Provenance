@@ -93,8 +93,8 @@ class ArtworkType(str, Enum):
         if any(w in text for w in ["sculptură", "sculptura", "sculpture", "statuie", "statue", "bust", "relief", "bronz", "bronze", "marmură", "marble", "ronde-bosse"]):
             return cls.SCULPTURE
 
-        # Painting (Default for "ulei", "canvas", etc, and explicit "pictura")
-        # Note: "Painting" is also the default fallback if nothing matches
+        if any(w in text for w in ["pictură", "pictura", "painting", "ulei", "oil", "pânză", "panza", "canvas"]):
+            return cls.PAINTING
         
         return cls.ARTIFACT
 
